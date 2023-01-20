@@ -29,7 +29,7 @@ public:
 	static  void* creator();
 	static  MStatus initialize();
 
-	static MObject	inputGeometry;
+	static MObject	inputPositions;
 	static MObject	outputGeometry;
 	static MObject	size;
 	static MTypeId	id;

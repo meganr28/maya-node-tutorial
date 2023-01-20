@@ -151,11 +151,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Cylinder.cpp" />
     <ClCompile Include="PluginMain.cpp" />
     <ClCompile Include="ReplicationCmd.cpp" />
     <ClCompile Include="ReplicationNode.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Cylinder.h" />
     <ClInclude Include="ReplicationCmd.h" />
     <ClInclude Include="ReplicationNode.h" />
   </ItemGroup>

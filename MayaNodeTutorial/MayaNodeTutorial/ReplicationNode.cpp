@@ -1,13 +1,19 @@
+#include <fstream>
+#include <sstream>
+#include <vector>
+
+#include "cylinder.h"
 #include "ReplicationNode.h"
 #include <maya/MGlobal.h>
 
-MObject ReplicationNode::inputGeometry;
+MObject ReplicationNode::inputPositions;
 MObject ReplicationNode::outputGeometry;
 MObject ReplicationNode::size;
 MTypeId ReplicationNode::id(0x80000);
 
 void* ReplicationNode::creator()
 {
+	MGlobal::displayInfo("In creator");
 	return new ReplicationNode();
 }
 
@@ -17,13 +23,17 @@ MStatus ReplicationNode::compute(const MPlug& plug, MDataBlock& data)
 	MStatus returnStatus;
 
 	if (plug == outputGeometry) {
-
+		MGlobal::displayInfo("In conditional");
 		// Input handles
-		MDataHandle inputGeometryHandle = data.inputValue(inputGeometry, &returnStatus);
-		McheckErr(returnStatus, "Error getting angle data handle\n");
+		MDataHandle positionsHandle = data.inputValue(inputPositions, &returnStatus);
+		McheckErr(returnStatus, "Error getting positions data handle\n");
+		MString positionsString = positionsHandle.asString();
+		if (positionsString == "") {
+			return MS::kSuccess;
+		}
 
 		MDataHandle sizeHandle = data.inputValue(size, &returnStatus);
-		McheckErr(returnStatus, "Error getting step size data handle\n");
+		McheckErr(returnStatus, "Error getting size data handle\n");
 
 		// Output handle
 		MDataHandle outputGeometryHandle = data.outputValue(outputGeometry, &returnStatus);
@@ -35,48 +45,100 @@ MStatus ReplicationNode::compute(const MPlug& plug, MDataBlock& data)
 		McheckErr(returnStatus, "ERROR creating outputData");
 
 		// IMPLEMENTATION HERE
-		/*// Initialize LSystem 
-		lsys = LSystem();
-		double angle = angleData.asDouble();
-		lsys.setDefaultAngle(angle);
 
-		double stepsize = stepSizeData.asDouble();
-		lsys.setDefaultStep(stepsize);
+		// Read from input positions text file
 
-		// Load grammar program
-		if (grammarData.asString() == "") {
-			return MStatus::kSuccess;
+		// add vector to hold world positions to instantiate cylinders
+		std::vector<MPoint> worldPositions;
+
+		std::string filePath = positionsString.asChar();
+		MGlobal::displayInfo(filePath.c_str());
+
+		//std::ifstream inputFile(filePath);
+		//std::string line;
+
+		std::fstream newFile;
+		newFile.open(filePath, ios::in);
+
+		if (newFile.is_open())
+		{
+			std::string line;
+			while (getline(newFile, line))
+			{
+				MGlobal::displayInfo("In getline");
+				std::vector<float> tokens;
+
+				std::string token;
+				std::istringstream s(line);
+				while (s >> token) {
+					tokens.push_back(std::stof(token));
+				}
+
+				MGlobal::displayInfo(std::to_string(tokens.size()).c_str());
+				MPoint worldPos = MPoint(tokens[0], tokens[1], tokens[2]);
+				MString worldPosStr = (std::to_string(worldPos.x) + " " + std::to_string(worldPos.y) + " " + std::to_string(worldPos.z)).c_str();
+				MGlobal::displayInfo(worldPosStr);
+
+				worldPositions.push_back(worldPos);
+			}
+
+			newFile.close();
 		}
-		lsys.loadProgram(grammarData.asString().asChar());
 
-		// Recreate mesh
-		std::vector<LSystem::Branch> branches;
-		// const int frame = (int)time.as(MTime::kFilm);
-		lsys.process(time.value(), branches);
+		/*if (inputFile.is_open()) 
+		{
+			while (std::getline(inputFile, line))
+			{
+				MGlobal::displayInfo("before tokens");
+				std::vector<float> tokens;
+				MGlobal::displayInfo("after tokens");
+				std::string token;
+				std::istringstream s(line);
+				while (s >> token) {
+					tokens.push_back(std::stof(token));
+				}
+
+				MGlobal::displayInfo(std::to_string(tokens.size()).c_str());
+				MPoint worldPos = MPoint(tokens[0], tokens[1], tokens[2]);
+				MString worldPosStr = (std::to_string(worldPos.x) + " " + std::to_string(worldPos.y) + " " + std::to_string(worldPos.z)).c_str();
+				MGlobal::displayInfo(worldPosStr);
+
+				worldPositions.push_back(worldPos);
+			}
+		}
+		else
+		{
+			MGlobal::displayInfo("broken");
+			return MS::kUnknownParameter;
+		}
+		inputFile.close();*/
 
 		// Get base of LSystem tree
-		MPoint initialStart = MPoint(branches[0].first[0], branches[0].first[2], branches[0].first[1]);
-		MPoint initialEnd = MPoint(branches[0].second[0], branches[0].second[2], branches[0].second[1]);
-		CylinderMesh baseCylinder = CylinderMesh(initialStart, initialEnd, 0.25);
+		if (worldPositions.size() > 0)
+		{
+			MPoint initialStart = MPoint(worldPositions[0].x, worldPositions[0].y, worldPositions[0].z);
+			MPoint initialEnd = MPoint(worldPositions[1].x, worldPositions[1].y, worldPositions[1].z);
+			CylinderMesh baseCylinder = CylinderMesh(initialStart, initialEnd, 0.25); // NOTE: change to to variable
 
-		MPointArray points;
-		MIntArray faceCounts;
-		MIntArray faceConnects;
-		baseCylinder.getMesh(points, faceCounts, faceConnects);
+			MPointArray points;
+			MIntArray faceCounts;
+			MIntArray faceConnects;
+			baseCylinder.getMesh(points, faceCounts, faceConnects);
 
-		// Add other branches
-		for (int i = 1; i < branches.size(); i++) {
-			LSystem::Branch currBranch = branches.at(i);
-			vec3 startPoint = currBranch.first;
-			vec3 endPoint = currBranch.second;
+			// Add other branches
+			for (int i = 1; i < worldPositions.size() - 1; i++) {
+				MPoint startPoint = worldPositions[i];
+				MPoint endPoint = worldPositions[i + 1];
+				CylinderMesh cylinder = CylinderMesh(startPoint, endPoint, 0.25); // change this to variable
 
-			addCylinder(points, faceCounts, faceConnects, startPoint, endPoint);
+				cylinder.appendToMesh(points, faceCounts, faceConnects);
+			}
+
+			MFnMesh	meshFS;
+			meshFS.create(points.length(), faceCounts.length(),
+				points, faceCounts, faceConnects, newOutputData, &returnStatus);
+			McheckErr(returnStatus, "ERROR creating new geometry");
 		}
-
-		MFnMesh	meshFS;
-		meshFS.create(points.length(), faceCounts.length(),
-			points, faceCounts, faceConnects, newOutputData, &returnStatus);
-		McheckErr(returnStatus, "ERROR creating new geometry");*/
 
 		outputGeometryHandle.set(newOutputData);
 		data.setClean(plug);
@@ -94,11 +156,11 @@ MStatus ReplicationNode::initialize()
 	MStatus returnStatus;
 
 	// Create attributes (initialization)
-	ReplicationNode::inputGeometry = geomAttr.create("input_geometry", "i_geom",
-		MFnData::kMesh,
+	ReplicationNode::inputPositions = geomAttr.create("input_positions", "pos",
+		MFnData::kString,
 		MObject::kNullObj, // initial data
 		&returnStatus);
-	McheckErr(returnStatus, "ERROR creating ReplicationNode input geometry attribute\n");
+	McheckErr(returnStatus, "ERROR creating ReplicationNode input positions attribute\n");
 
 	ReplicationNode::size = sizeAttr.create("size", "s",
 		MFnNumericData::kDouble,
@@ -113,7 +175,7 @@ MStatus ReplicationNode::initialize()
 	McheckErr(returnStatus, "ERROR creating ReplicationNode output geometry attribute\n");
 
 	// Add attributes to node
-	returnStatus = addAttribute(ReplicationNode::inputGeometry);
+	returnStatus = addAttribute(ReplicationNode::inputPositions);
 	McheckErr(returnStatus, "ERROR adding input geometry attribute\n");
 
 	returnStatus = addAttribute(ReplicationNode::size);
@@ -123,13 +185,13 @@ MStatus ReplicationNode::initialize()
 	McheckErr(returnStatus, "ERROR adding output geometry attribute\n");
 
 	// Attribute affects (changing attributes should change output)
-	returnStatus = attributeAffects(ReplicationNode::inputGeometry,
+	returnStatus = attributeAffects(ReplicationNode::inputPositions,
 		ReplicationNode::outputGeometry);
-	McheckErr(returnStatus, "ERROR in input geometry attributeAffects\n");
+	McheckErr(returnStatus, "ERROR in input positions attributeAffects\n");
 
 	returnStatus = attributeAffects(ReplicationNode::size,
 		ReplicationNode::outputGeometry);
-	McheckErr(returnStatus, "ERROR in sSize attributeAffects\n");
+	McheckErr(returnStatus, "ERROR in size attributeAffects\n");
 
 	return MS::kSuccess;
 }
