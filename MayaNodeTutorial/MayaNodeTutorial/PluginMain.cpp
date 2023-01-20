@@ -17,6 +17,7 @@
 #include <list>
 
 #include "ReplicationCmd.h"
+#include "ReplicationNode.h"
 
 MStatus initializePlugin(MObject obj)
 {
@@ -27,6 +28,14 @@ MStatus initializePlugin(MObject obj)
     status = plugin.registerCommand("ReplicationCmd", ReplicationCmd::creator);
     if (!status) {
         status.perror("registerCommand");
+        return status;
+    }
+
+    // Register node
+    status = plugin.registerNode("ReplicationNode", ReplicationNode::id,
+        ReplicationNode::creator, ReplicationNode::initialize);
+    if (!status) {
+        status.perror("registerNode");
         return status;
     }
 
@@ -41,6 +50,13 @@ MStatus uninitializePlugin(MObject obj)
     status = plugin.deregisterCommand("ReplicationCmd");
     if (!status) {
         status.perror("deregisterCommand");
+        return status;
+    }
+
+    // Node
+    status = plugin.deregisterNode(ReplicationNode::id);
+    if (!status) {
+        status.perror("deregisterNode");
         return status;
     }
 

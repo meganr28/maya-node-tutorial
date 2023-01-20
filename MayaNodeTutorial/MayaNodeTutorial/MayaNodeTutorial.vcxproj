@@ -153,9 +153,11 @@
   <ItemGroup>
     <ClCompile Include="PluginMain.cpp" />
     <ClCompile Include="ReplicationCmd.cpp" />
+    <ClCompile Include="ReplicationNode.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ReplicationCmd.h" />
+    <ClInclude Include="ReplicationNode.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
