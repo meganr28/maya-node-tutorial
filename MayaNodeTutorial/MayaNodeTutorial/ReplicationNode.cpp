@@ -13,7 +13,6 @@ MTypeId ReplicationNode::id(0x80000);
 
 void* ReplicationNode::creator()
 {
-	MGlobal::displayInfo("In creator");
 	return new ReplicationNode();
 }
 
@@ -23,7 +22,6 @@ MStatus ReplicationNode::compute(const MPlug& plug, MDataBlock& data)
 	MStatus returnStatus;
 
 	if (plug == outputGeometry) {
-		MGlobal::displayInfo("In conditional");
 		// Input handles
 		MDataHandle positionsHandle = data.inputValue(inputPositions, &returnStatus);
 		McheckErr(returnStatus, "Error getting positions data handle\n");
@@ -48,8 +46,8 @@ MStatus ReplicationNode::compute(const MPlug& plug, MDataBlock& data)
 		// Read input positions from text file
 		std::vector<MPoint> worldPositions;
 
+		// Get file path as string
 		std::string filePath = positionsString.asChar();
-		MGlobal::displayInfo(filePath.c_str());
 
 		std::fstream newFile;
 		newFile.open(filePath, ios::in);
@@ -59,7 +57,7 @@ MStatus ReplicationNode::compute(const MPlug& plug, MDataBlock& data)
 			std::string line;
 			while (getline(newFile, line))
 			{
-				MGlobal::displayInfo("In getline");
+				// Tokenize line
 				std::vector<float> tokens;
 
 				std::string token;
@@ -68,10 +66,10 @@ MStatus ReplicationNode::compute(const MPlug& plug, MDataBlock& data)
 					tokens.push_back(std::stof(token));
 				}
 
-				MGlobal::displayInfo(std::to_string(tokens.size()).c_str());
+				// Add position to list of positions
 				MPoint worldPos = MPoint(tokens[0], tokens[1], tokens[2]);
-				MString worldPosStr = (std::to_string(worldPos.x) + " " + std::to_string(worldPos.y) + " " + std::to_string(worldPos.z)).c_str();
-				MGlobal::displayInfo(worldPosStr);
+				//MString worldPosStr = (std::to_string(worldPos.x) + " " + std::to_string(worldPos.y) + " " + std::to_string(worldPos.z)).c_str();
+				//MGlobal::displayInfo(worldPosStr);
 
 				worldPositions.push_back(worldPos);
 			}
@@ -79,19 +77,21 @@ MStatus ReplicationNode::compute(const MPlug& plug, MDataBlock& data)
 			newFile.close();
 		}
 
+		// If there are positions in the file, then create a sequence of cylinders to connect those points
 		if (worldPositions.size() > 0)
 		{
-			MGlobal::displayInfo(std::to_string(r).c_str());
-
+			// Get start and end point of first cylinder (will serve as base of mesh)
 			MPoint initialStart = MPoint(worldPositions[0].x, worldPositions[0].y, worldPositions[0].z);
 			MPoint initialEnd = MPoint(worldPositions[1].x, worldPositions[1].y, worldPositions[1].z);
 			CylinderMesh baseCylinder = CylinderMesh(initialStart, initialEnd, r);
 
+			// Get cylinder data
 			MPointArray points;
 			MIntArray faceCounts;
 			MIntArray faceConnects;
 			baseCylinder.getMesh(points, faceCounts, faceConnects);
 
+			// Add rest of cylinders to mesh
 			for (int i = 1; i < worldPositions.size() - 1; i++) {
 				MPoint startPoint = worldPositions[i];
 				MPoint endPoint = worldPositions[i + 1];
@@ -100,12 +100,14 @@ MStatus ReplicationNode::compute(const MPlug& plug, MDataBlock& data)
 				cylinder.appendToMesh(points, faceCounts, faceConnects);
 			}
 
+			// Create mesh
 			MFnMesh	meshFS;
 			meshFS.create(points.length(), faceCounts.length(),
 				points, faceCounts, faceConnects, newOutputData, &returnStatus);
 			McheckErr(returnStatus, "ERROR creating new geometry");
 		}
 
+		// Sets output geometry data to newly processed data
 		outputGeometryHandle.set(newOutputData);
 		data.setClean(plug);
 	}
