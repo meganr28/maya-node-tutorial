@@ -8,7 +8,7 @@
 
 MObject ReplicationNode::inputPositions;
 MObject ReplicationNode::outputGeometry;
-MObject ReplicationNode::size;
+MObject ReplicationNode::radius;
 MTypeId ReplicationNode::id(0x80000);
 
 void* ReplicationNode::creator()
@@ -32,8 +32,9 @@ MStatus ReplicationNode::compute(const MPlug& plug, MDataBlock& data)
 			return MS::kSuccess;
 		}
 
-		MDataHandle sizeHandle = data.inputValue(size, &returnStatus);
+		MDataHandle sizeHandle = data.inputValue(radius, &returnStatus);
 		McheckErr(returnStatus, "Error getting size data handle\n");
+		double r = sizeHandle.asDouble();
 
 		// Output handle
 		MDataHandle outputGeometryHandle = data.outputValue(outputGeometry, &returnStatus);
@@ -44,18 +45,11 @@ MStatus ReplicationNode::compute(const MPlug& plug, MDataBlock& data)
 		MObject newOutputData = dataCreator.create(&returnStatus);
 		McheckErr(returnStatus, "ERROR creating outputData");
 
-		// IMPLEMENTATION HERE
-
-		// Read from input positions text file
-
-		// add vector to hold world positions to instantiate cylinders
+		// Read input positions from text file
 		std::vector<MPoint> worldPositions;
 
 		std::string filePath = positionsString.asChar();
 		MGlobal::displayInfo(filePath.c_str());
-
-		//std::ifstream inputFile(filePath);
-		//std::string line;
 
 		std::fstream newFile;
 		newFile.open(filePath, ios::in);
@@ -85,51 +79,23 @@ MStatus ReplicationNode::compute(const MPlug& plug, MDataBlock& data)
 			newFile.close();
 		}
 
-		/*if (inputFile.is_open()) 
-		{
-			while (std::getline(inputFile, line))
-			{
-				MGlobal::displayInfo("before tokens");
-				std::vector<float> tokens;
-				MGlobal::displayInfo("after tokens");
-				std::string token;
-				std::istringstream s(line);
-				while (s >> token) {
-					tokens.push_back(std::stof(token));
-				}
-
-				MGlobal::displayInfo(std::to_string(tokens.size()).c_str());
-				MPoint worldPos = MPoint(tokens[0], tokens[1], tokens[2]);
-				MString worldPosStr = (std::to_string(worldPos.x) + " " + std::to_string(worldPos.y) + " " + std::to_string(worldPos.z)).c_str();
-				MGlobal::displayInfo(worldPosStr);
-
-				worldPositions.push_back(worldPos);
-			}
-		}
-		else
-		{
-			MGlobal::displayInfo("broken");
-			return MS::kUnknownParameter;
-		}
-		inputFile.close();*/
-
-		// Get base of LSystem tree
 		if (worldPositions.size() > 0)
 		{
+			MGlobal::displayInfo(std::to_string(r).c_str());
+
 			MPoint initialStart = MPoint(worldPositions[0].x, worldPositions[0].y, worldPositions[0].z);
 			MPoint initialEnd = MPoint(worldPositions[1].x, worldPositions[1].y, worldPositions[1].z);
-			CylinderMesh baseCylinder = CylinderMesh(initialStart, initialEnd, 0.25); // NOTE: change to to variable
+			CylinderMesh baseCylinder = CylinderMesh(initialStart, initialEnd, r);
 
 			MPointArray points;
 			MIntArray faceCounts;
 			MIntArray faceConnects;
 			baseCylinder.getMesh(points, faceCounts, faceConnects);
 
-			// Add other branches
 			for (int i = 1; i < worldPositions.size() - 1; i++) {
 				MPoint startPoint = worldPositions[i];
 				MPoint endPoint = worldPositions[i + 1];
-				CylinderMesh cylinder = CylinderMesh(startPoint, endPoint, 0.25); // change this to variable
+				CylinderMesh cylinder = CylinderMesh(startPoint, endPoint, r);
 
 				cylinder.appendToMesh(points, faceCounts, faceConnects);
 			}
@@ -162,9 +128,9 @@ MStatus ReplicationNode::initialize()
 		&returnStatus);
 	McheckErr(returnStatus, "ERROR creating ReplicationNode input positions attribute\n");
 
-	ReplicationNode::size = sizeAttr.create("size", "s",
+	ReplicationNode::radius = sizeAttr.create("radius", "r",
 		MFnNumericData::kDouble,
-		1.0,
+		0.25,
 		&returnStatus);
 	McheckErr(returnStatus, "ERROR creating ReplicationNode size attribute\n");
 
@@ -178,7 +144,7 @@ MStatus ReplicationNode::initialize()
 	returnStatus = addAttribute(ReplicationNode::inputPositions);
 	McheckErr(returnStatus, "ERROR adding input geometry attribute\n");
 
-	returnStatus = addAttribute(ReplicationNode::size);
+	returnStatus = addAttribute(ReplicationNode::radius);
 	McheckErr(returnStatus, "ERROR adding size attribute\n");
 
 	returnStatus = addAttribute(ReplicationNode::outputGeometry);
@@ -189,7 +155,7 @@ MStatus ReplicationNode::initialize()
 		ReplicationNode::outputGeometry);
 	McheckErr(returnStatus, "ERROR in input positions attributeAffects\n");
 
-	returnStatus = attributeAffects(ReplicationNode::size,
+	returnStatus = attributeAffects(ReplicationNode::radius,
 		ReplicationNode::outputGeometry);
 	McheckErr(returnStatus, "ERROR in size attributeAffects\n");
 

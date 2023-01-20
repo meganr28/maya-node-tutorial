@@ -31,7 +31,7 @@ public:
 
 	static MObject	inputPositions;
 	static MObject	outputGeometry;
-	static MObject	size;
+	static MObject	radius;
 	static MTypeId	id;
 
 };
