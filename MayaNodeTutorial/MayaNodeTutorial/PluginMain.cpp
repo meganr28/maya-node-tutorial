@@ -39,6 +39,13 @@ MStatus initializePlugin(MObject obj)
         return status;
     }
 
+    // Auto-register Mel menu script
+    char buffer[2048];
+    MString pluginPath = plugin.loadPath();
+    MString menuPath = MString("source \"") + pluginPath + MString("/../../MayaNodeTutorial/replicationMenu.mel\"");
+    sprintf_s(buffer, 2048, menuPath.asChar(), pluginPath);
+    MGlobal::executeCommand(buffer, true);
+
     return status;
 }
 

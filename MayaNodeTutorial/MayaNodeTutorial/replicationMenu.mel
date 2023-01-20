@@ -1,0 +1,3 @@
+global string $gMainWindow;
+string $lsystemMenu = `menu -p $gMainWindow -label "Tube Replication"`;
+    menuItem -label "Create Dynamic Tube Network" -command "createNode transform -n Replication1; createNode mesh -n ReplicationShape1 -p Replication1; sets -add initialShadingGroup ReplicationShape1; createNode ReplicationNode -n ReplicationNode1; connectAttr ReplicationNode1.output_geometry ReplicationShape1.inMesh;";
